@@ -1,0 +1,49 @@
+software version: 
+
+usearch v11.0.667_i86linux64,	http://drive5.com/usearch
+
+
+	1. #merge
+	./usearch11 -fastq_mergepairs ${base}_R1.fq.gz -relabel @ -fastq_maxdiffs 10 -fastq_pctid 80 -fastqout ${base}_merged.fq.gz
+	
+	for filename in *_R1.fq;
+	do base=$(basename $filename _R1.fq);echo $base;
+	./usearch11 -fastq_mergepairs ${base}_R1.fq -relabel @ -fastq_maxdiffs 10 -fastq_pctid 80 -fastqout ${base}_merged.fq;
+	done
+	
+	
+	2. #combine
+	#(ios,linux) 
+	cat *.fq >reads.fq
+
+	3. #remove adapters and quality control
+	./usearch11 -fastq_filter reads.fq --fastq_stripleft 19 --fastq_stripright 20 -fastq_maxee 1.0 -fastaout reads.fa --fastq_qmax 42
+	
+4. #Unique reads 
+	./usearch11 -fastx_uniques reads.fa -fastaout uniques.fa -sizeout -relabel Uniq
+
+	5. #Uparse pipeline otu table
+	./usearch11 -cluster_otus uniques.fa -otus otus.fa -relabel Otu
+	(optional)  ZOTUs
+	./usearch11  -unoise3 uniques.fa -zotus zotus.fa
+	./usearch11 -otutab reads.fa -zotus zotus.fa -otutabout zotutab.txt
+	
+
+	6. #Normalization
+	seqkit stat *.fastq > seqkit_stat.tsv
+	./usearch11 -otutab_rare zotutab.txt -sample_size 55315 -output zotutab_norm.txt
+
+	
+
+	7. #Predict taxonomy
+	./usearch11 -makeudb_usearch rdp_16s_v18.fa -output rdp_16s_v18.udb  
+	./usearch11 -sintax zotus.fa -db rdp_16s_v18.udb -tabbedout zotu.sintax -strand both -sintax_cutoff 0.8 
+
+	8. #FastTree
+	#muscle
+	 ./muscle5.1 -super5 zotus.fa -output zotus_aln.afa -threads 40
+	#FastTree
+	 ./FastTree -nt -gtr zotus_aln.afa > zotus.tre 
+	
+	
+	
